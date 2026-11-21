@@ -1,0 +1,65 @@
+{
+  "name": "netatmo-weather",
+  "author": "TomHol",
+  "version": "1.1.3",
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "pebble": {
+    "displayName": "Netatmo Weather",
+    "uuid": "e85a04a2-6c15-4486-8ae3-2808fb447e3a",
+    "sdkVersion": "3",
+    "projectType": "plugin",
+    "configPage": "src/config.html",
+    "usesPermissions": [
+      {
+        "name": "Internet",
+        "parameters": {
+          "domains": ["api.netatmo.com"]
+        },
+        "reason": "To read the measurements of your Netatmo weather stations",
+        "required": true
+      }
+    ],
+    "plugin": {
+      "description": "Live readings from the user's Netatmo Smart Weather Stations: one instance per module (outdoor, indoor, rain gauge, anemometer), outdoor modules first; each named \"Station - Module\". Temperature with today's high/low and trend, humidity, CO2, noise, pressure with trend, rain (last hour, today), wind and gusts, module battery and the time of the last measurement, in the user's units. Refreshed every 15 min, 30 min, 1 h or 6 h, as set on the settings page.",
+      "script": "src/plugin/index.js",
+      "sources": [
+        {
+          "category": "weather",
+          "items": ["netatmo"],
+          "properties": {
+            "temperature": ["shortText", "longText", "numericValue"],
+            "humidity": ["shortText", "longText", "numericValue"],
+            "co2": ["shortText", "longText", "numericValue"],
+            "pressure": ["shortText", "longText", "numericValue"],
+            "wind_speed": ["shortText", "longText", "numericValue"],
+            "wind_direction": ["shortText", "longText", "numericValue"],
+            "gust_speed": ["shortText", "longText", "numericValue"],
+            "gust_direction": ["shortText", "longText", "numericValue"],
+            "rain_1h": ["shortText", "longText", "numericValue"],
+            "rain_today": ["shortText", "longText", "numericValue"],
+            "rain": ["shortText", "longText", "numericValue"],
+            "high": ["shortText", "longText", "numericValue"],
+            "low": ["shortText", "longText", "numericValue"],
+            "temperature_trend": ["shortText", "longText"],
+            "pressure_trend": ["shortText", "longText"],
+            "noise": ["shortText", "longText", "numericValue"],
+            "battery": ["shortText", "longText", "numericValue"],
+            "updated": ["timestamp", "shortText"],
+            "reachable": ["boolean", "shortText"],
+            "name": ["shortText", "longText"],
+            "station": ["shortText", "longText"],
+            "module_type": ["shortText"]
+          },
+          "supportsMultiple": true,
+          "callerPermissions": [],
+          "suggestedRefreshIntervalSec": 900
+        }
+      ],
+      "oauth": {
+        "netatmo": {}
+      }
+    }
+  }
+}

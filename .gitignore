@@ -1,0 +1,9 @@
+build/
+node_modules/
+.lock-waf*
+
+# pomocné soubory, nejsou součástí buildu
+*.png
+*.jpg
+src/icon.svg
+projekt.md

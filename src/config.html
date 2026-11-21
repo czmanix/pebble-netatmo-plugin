@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Netatmo Weather</title>
+  <style>
+    :root { color-scheme: light dark; --accent: #ff6a00; --muted: rgba(128,128,128,.15); }
+    body { font: 16px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; margin: 0; padding: 20px; }
+    h1 { font-size: 22px; margin: 0 0 6px; }
+    p { line-height: 1.45; margin: 0 0 12px; }
+    .lead { opacity: .75; font-size: 14px; }
+    .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+    button { padding: 10px 16px; border: 0; border-radius: 8px; font: 15px inherit;
+             background: var(--accent); color: #fff; }
+    button.secondary { background: rgba(128,128,128,.2); color: inherit; }
+    button:disabled { opacity: .5; }
+    [hidden] { display: none !important; }
+    #status { padding: 10px 12px; border-radius: 8px; background: var(--muted); font-size: 14px; }
+    #status.error { background: #fde2e1; color: #6b1210; }
+    #blocked { margin: 0 0 16px; padding: 10px 12px; border-radius: 8px; background: #fdecc8;
+               color: #5c3d00; font-size: 14px; line-height: 1.45; }
+    #blocked strong { display: block; }
+    .module { margin-top: 14px; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(128,128,128,.3); }
+    .module h2 { font-size: 16px; margin: 0; display: flex; justify-content: space-between; gap: 8px; }
+    .module .meta { font-size: 12px; opacity: .65; margin: 2px 0 8px; }
+    .module .offline { color: #c0392b; font-size: 12px; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    td { padding: 3px 0; vertical-align: top; }
+    td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+    .setting { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+               margin: 14px 0; font-size: 15px; }
+    select { padding: 8px 10px; font: 15px inherit; border-radius: 8px; color: inherit;
+             background: transparent; border: 1px solid rgba(128,128,128,.45); }
+    .fetched { font-size: 12px; opacity: .65; margin-top: 6px; }
+    .hint { font-size: 13px; opacity: .7; margin-top: 18px; line-height: 1.45; }
+    code { font-size: 12px; }
+  </style>
+</head>
+<body>
+  <p id="blocked" role="alert" hidden></p>
+  <h1>Netatmo Weather</h1>
+  <p class="lead" id="lead"></p>
+
+  <div class="buttons">
+    <button id="connect" type="button" hidden></button>
+    <button id="refresh" class="secondary" type="button" hidden></button>
+    <button id="unlink" class="secondary" type="button" hidden></button>
+  </div>
+  <div id="status"></div>
+  <div class="fetched" id="fetched" hidden></div>
+  <label class="setting" id="intervalRow" hidden>
+    <span id="intervalLabel"></span>
+    <select id="interval"></select>
+  </label>
+  <div id="modules"></div>
+  <p class="hint" id="hint" hidden></p>
+  <p class="hint" id="language" hidden></p>
+
+  <script>
+    var STRINGS = {
+      en: {
+        lead: 'Shows your Netatmo weather stations to watchfaces and apps as weather/netatmo.',
+        connect: 'Sign in with Netatmo', refresh: 'Refresh', unlink: 'Sign out',
+        starting: 'Starting the plugin…', opening: 'Opening Netatmo sign-in…', loading: 'Loading…',
+        notConnected: 'Not signed in to Netatmo.', connected: 'Signed in. Modules found: ',
+        noModules: 'Signed in, but no weather station was found in this account.',
+        offline: 'offline',
+        interval: 'Update every', language: 'Language of the readings: ',
+        from: { pebble: 'from the Pebble app', netatmo: 'from your Netatmo account', default: 'default' },
+        fetched: 'Last downloaded from Netatmo: ',
+        intervals: { 15: '15 minutes', 30: '30 minutes', 60: '1 hour', 360: '6 hours' },
+        blocked: 'The plugin isn\'t allowed to connect to {host}.',
+        blockedHow: 'Go back to the plugin\'s page and turn on "Connect to {host}" under Permissions.',
+        blockedMaybe: ' If it\'s already on, check your internet connection.',
+        hint: 'Watchfaces read these modules in this order: the first one is instances[0]. Module IDs: ',
+        types: { outdoor: 'Outdoor', indoor: 'Indoor', rain: 'Rain gauge', wind: 'Wind gauge' },
+        labels: {
+          temperature: 'Temperature', high: 'Today\'s high', low: 'Today\'s low', temperature_trend: 'Temperature trend',
+          humidity: 'Humidity', co2: 'CO₂', noise: 'Noise', pressure: 'Pressure', pressure_trend: 'Pressure trend',
+          rain: 'Rain (now)', rain_1h: 'Rain (last hour)', rain_today: 'Rain (today)',
+          wind_speed: 'Wind', wind_direction: 'Wind direction', gust_speed: 'Gusts', gust_direction: 'Gust direction',
+          battery: 'Battery', reachable: 'Status', updated: 'Measured',
+        },
+      },
+      cs: {
+        lead: 'Zpřístupní vaše meteostanice Netatmo ciferníkům a aplikacím jako weather/netatmo.',
+        connect: 'Přihlásit se k Netatmo', refresh: 'Obnovit', unlink: 'Odhlásit',
+        starting: 'Spouštím plugin…', opening: 'Otevírám přihlášení k Netatmo…', loading: 'Načítám…',
+        notConnected: 'Nejste přihlášeni k Netatmo.', connected: 'Přihlášeno. Nalezené moduly: ',
+        noModules: 'Přihlášeno, ale v účtu není žádná meteostanice.',
+        offline: 'nedostupný',
+        interval: 'Aktualizovat každých', language: 'Jazyk hodnot: ',
+        from: { pebble: 'z aplikace Pebble', netatmo: 'z účtu Netatmo', default: 'výchozí' },
+        fetched: 'Naposledy staženo z Netatmo: ',
+        intervals: { 15: '15 minut', 30: '30 minut', 60: '1 hodinu', 360: '6 hodin' },
+        blocked: 'Plugin nemá povolení připojit se k {host}.',
+        blockedHow: 'Vraťte se na stránku pluginu a v Oprávněních zapněte „Connect to {host}“.',
+        blockedMaybe: ' Pokud už zapnuté je, zkontrolujte připojení k internetu.',
+        hint: 'Ciferníky čtou moduly v tomto pořadí: první je instances[0]. ID modulů: ',
+        types: { outdoor: 'Venkovní', indoor: 'Vnitřní', rain: 'Srážkoměr', wind: 'Anemometr' },
+        labels: {
+          temperature: 'Teplota', high: 'Dnešní maximum', low: 'Dnešní minimum', temperature_trend: 'Vývoj teploty',
+          humidity: 'Vlhkost', co2: 'CO₂', noise: 'Hluk', pressure: 'Tlak', pressure_trend: 'Vývoj tlaku',
+          rain: 'Srážky (teď)', rain_1h: 'Srážky (poslední hodina)', rain_today: 'Srážky (dnes)',
+          wind_speed: 'Vítr', wind_direction: 'Směr větru', gust_speed: 'Nárazy', gust_direction: 'Směr nárazů',
+          battery: 'Baterie', reachable: 'Stav', updated: 'Změřeno',
+        },
+      },
+    };
+    var $ = function (id) { return document.getElementById(id); };
+    var S = STRINGS.en;
+    var lang = '';
+
+    // The plugin's readings follow the watch's language (preferences/units locale), so the page
+    // switches to it once the plugin says what it is; until then, the phone's.
+    function setLanguage(locale) {
+      var next = String(locale || 'en').toLowerCase().split(/[-_]/)[0];
+      if (!STRINGS[next]) next = 'en';
+      if (next === lang) return;
+      lang = next;
+      S = STRINGS[lang];
+      document.documentElement.lang = lang;
+      $('lead').textContent = S.lead;
+      $('connect').textContent = S.connect;
+      $('refresh').textContent = S.refresh;
+      $('unlink').textContent = S.unlink;
+      $('intervalLabel').textContent = S.interval;
+      $('interval').replaceChildren();
+    }
+    setLanguage(navigator.language);
+    $('status').textContent = S.starting;
+
+    function send(message) {
+      return Pebble.sendMessage('plugin', message);
+    }
+
+    function setStatus(text, isError) {
+      $('status').textContent = text;
+      $('status').className = isError ? 'error' : '';
+    }
+
+    function busy(on) {
+      ['connect', 'refresh', 'unlink'].forEach(function (id) { $(id).disabled = on; });
+    }
+
+    function el(tag, className, text) {
+      var e = document.createElement(tag);
+      if (className) e.className = className;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+
+    function renderModules(modules) {
+      var box = $('modules');
+      box.replaceChildren();
+      (modules || []).forEach(function (m) {
+        var card = el('div', 'module');
+        var h = el('h2');
+        h.appendChild(el('span', '', m.name));
+        if (!m.reachable) h.appendChild(el('span', 'offline', S.offline));
+        card.appendChild(h);
+        card.appendChild(el('div', 'meta', S.types[m.type] || m.type));
+        var table = el('table');
+        m.rows.forEach(function (row) {
+          if (row[0] === 'reachable') return;
+          var tr = el('tr');
+          tr.appendChild(el('td', '', S.labels[row[0]] || row[0]));
+          tr.appendChild(el('td', '', row[1]));
+          table.appendChild(tr);
+        });
+        card.appendChild(table);
+        box.appendChild(card);
+      });
+      var hint = $('hint');
+      if (modules && modules.length) {
+        hint.replaceChildren(S.hint);
+        modules.forEach(function (m, i) {
+          hint.appendChild(document.createElement('br'));
+          hint.appendChild(el('code', '', i + ': ' + m.id + ' (' + m.name + ')'));
+        });
+        hint.hidden = false;
+      } else {
+        hint.hidden = true;
+      }
+    }
+
+    function renderInterval(reply) {
+      var select = $('interval');
+      if (reply.intervals && !select.options.length) {
+        reply.intervals.forEach(function (n) {
+          var o = el('option', '', S.intervals[n] || n + ' min');
+          o.value = String(n);
+          select.appendChild(o);
+        });
+      }
+      if (reply.interval) select.value = String(reply.interval);
+      $('intervalRow').hidden = !reply.connected;
+
+    }
+
+    function show(reply) {
+      reply = reply || {};
+      if (reply.locale) {
+        setLanguage(reply.locale);
+        $('language').textContent = S.language + reply.locale + ' (' + (S.from[reply.localeFrom] || reply.localeFrom) + ')';
+        $('language').hidden = false;
+      }
+      $('connect').hidden = !!reply.connected;
+      $('refresh').hidden = !reply.connected;
+      $('unlink').hidden = !reply.connected;
+      renderModules(reply.modules);
+      renderInterval(reply);
+      var fetched = $('fetched');
+      fetched.hidden = !reply.fetchedAt;
+      if (reply.fetchedAt) {
+        fetched.textContent = S.fetched + new Date(reply.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      if (reply.error) setStatus(reply.error, true);
+      else if (!reply.connected) setStatus(S.notConnected);
+      else if (reply.modules && reply.modules.length) setStatus(S.connected + reply.modules.length);
+      else setStatus(S.noModules);
+    }
+
+    async function run(message, pending) {
+      busy(true);
+      setStatus(pending);
+      try {
+        show(await send(message));
+      } catch (e) {
+        setStatus(String((e && e.message) || e), true);
+      } finally {
+        busy(false);
+      }
+    }
+
+    $('connect').onclick = function () { run({ type: 'connect' }, S.opening); };
+    $('refresh').onclick = function () { run({ type: 'refresh' }, S.loading); };
+    $('interval').onchange = async function () {
+      var reply = await send({ type: 'setInterval', minutes: Number(this.value) });
+      if (reply && reply.error) setStatus(reply.error, true);
+    };
+    $('unlink').onclick = function () { run({ type: 'unlink' }, S.loading); };
+
+    function showBlocked(blocked) {
+      var banner = $('blocked');
+      var title = el('strong', '', S.blocked.replace('{host}', blocked.host));
+      banner.replaceChildren(title, S.blockedHow.replace(/\{host\}/g, blocked.host) + (blocked.sure ? '' : S.blockedMaybe));
+      banner.hidden = false;
+    }
+
+    Pebble.addEventListener('ready', function (event) {
+      if (event.target !== 'plugin') return;
+      send({ type: 'reach' }).then(function (r) { if (r && r.blocked) showBlocked(r.blocked); }).catch(function () {});
+      run({ type: 'status' }, S.loading);
+    });
+  </script>
+</body>
+</html>
