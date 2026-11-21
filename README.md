@@ -1,42 +1,44 @@
 # Netatmo Weather – Pebble plugin
 
-Plugin (plugin-only `.pbw`, bez kódu pro hodinky) pro mobilní aplikaci Pebble 1.18+. Čte data
-z meteostanic Netatmo a nabízí je libovolnému ciferníku, aplikaci i Indexu jako zdroj
-`weather/netatmo`.
+A plugin (plugin-only `.pbw`, no watch code) for the Pebble mobile app 1.18+. It reads data
+from Netatmo weather stations and makes it available to any watchface, app or Index as the
+source `weather/netatmo`.
 
-## Co plugin nabízí
+## What the plugin provides
 
-Zdroj `weather/netatmo` obsahuje jednu instanci na každý modul. Pořadí je stabilní: u každé
-stanice nejdřív venkovní modul, pak základna, další vnitřní moduly, srážkoměr a anemometr.
-`instances[0]` je tedy venkovní teplota první stanice. `instanceId` je MAC adresa modulu.
-Název instance (`name`) má tvar „Stanice - Modul“, například `Domov - venku`.
+The `weather/netatmo` source has one instance per module. The order is stable: for each
+station, first the outdoor module, then the base station, extra indoor modules, the rain gauge
+and the wind gauge. So `instances[0]` is the outdoor temperature of the first station.
+`instanceId` is the module's MAC address. The instance name (`name`) has the form
+"Station - Module", for example `Home - Outdoor`.
 
-| Vlastnost | Tvary | Moduly |
+| Property | Shapes | Modules |
 |---|---|---|
-| `name`, `station` | shortText, longText | všechny |
-| `module_type` | shortText: `outdoor` / `indoor` / `rain` / `wind` | všechny |
-| `temperature`, `high`, `low` | shortText, longText, numericValue (°C/°F) | venkovní, vnitřní |
-| `temperature_trend`, `pressure_trend` | shortText, longText | venkovní, vnitřní / základna |
-| `humidity` | … numericValue (%, 0–100) | venkovní, vnitřní |
-| `co2` (ppm), `noise` (dB) | … numericValue | vnitřní / základna |
-| `pressure` | … numericValue (hPa/inHg) | základna |
-| `rain`, `rain_1h`, `rain_today` | … numericValue (mm/in) | srážkoměr |
-| `wind_speed`, `gust_speed` | … numericValue (km/h, m/s, mph, knots) | anemometr |
-| `wind_direction`, `gust_direction` | … numericValue (°, odkud fouká), shortText `JZ`/`SW` | anemometr |
-| `battery` | … numericValue (%) | moduly na baterie |
-| `reachable` | boolean, shortText | všechny |
-| `updated` | timestamp, shortText (čas měření) | všechny |
+| `name`, `station` | shortText, longText | all |
+| `module_type` | shortText: `outdoor` / `indoor` / `rain` / `wind` | all |
+| `temperature`, `high`, `low` | shortText, longText, numericValue (°C/°F) | outdoor, indoor |
+| `temperature_trend`, `pressure_trend` | shortText, longText | outdoor, indoor / base |
+| `humidity` | … numericValue (%, 0–100) | outdoor, indoor |
+| `co2` (ppm), `noise` (dB) | … numericValue | indoor / base |
+| `pressure` | … numericValue (hPa/inHg) | base |
+| `rain`, `rain_1h`, `rain_today` | … numericValue (mm/in) | rain gauge |
+| `wind_speed`, `gust_speed` | … numericValue (km/h, m/s, mph, knots) | wind gauge |
+| `wind_direction`, `gust_direction` | … numericValue (°, direction the wind blows from), shortText `SW` | wind gauge |
+| `battery` | … numericValue (%) | battery-powered modules |
+| `reachable` | boolean, shortText | all |
+| `updated` | timestamp, shortText (time of measurement) | all |
 
-Jednotky, desetinný oddělovač, 12/24h formát a jazyk (čeština/angličtina) se řídí podle
-`preferences/units`. Když není k dispozici, použije se nastavení účtu Netatmo. Chybějící
-vlastnost znamená, že ji modul právě nehlásí (například když je offline).
+Units, decimal separator, 12/24h format and language (English/Czech) follow
+`preferences/units`. When it isn't available, the Netatmo account settings are used. A missing
+property means the module isn't reporting it right now (for example when it's offline).
 
-Interval aktualizace se volí v nastavení pluginu: 15 minut (výchozí), 30 minut, 1 hodina nebo
-6 hodin. Netatmo se dotazuje nejvýš jednou za interval, mezi tím plugin odpovídá z cache
-a `validUntilMs` je konec intervalu. Tlačítko **Obnovit** stáhne data hned. Při výpadku sítě
-plugin vrátí starší data (až hodinu, u delších intervalů až dva intervaly).
+The refresh interval is chosen in the plugin settings: 15 minutes (default), 30 minutes,
+1 hour or 6 hours. Netatmo is queried at most once per interval; in between, the plugin answers
+from its cache and `validUntilMs` is the end of the interval. The **Refresh** button fetches
+data right away. When the network is down, the plugin returns older data (up to an hour, or up
+to two intervals for longer intervals).
 
-### Použití v ciferníku (PKJS)
+### Using it in a watchface (PKJS)
 
 ```js
 Pebble.subscribeToSource({
@@ -46,23 +48,24 @@ Pebble.subscribeToSource({
   onData: function (e) {
     var outdoor = e.instances[0] && e.instances[0].properties;
     var temp = outdoor && outdoor.temperature ? outdoor.temperature.shortText.text : '--';
-    // ... poslat do hodinek přes AppMessage
+    // ... send to the watch via AppMessage
   },
   onError: function (err) { console.log(err.code + ' ' + err.message); },
 });
 ```
 
-Ciferník musí mít v `package.json` `usesPermissions` (manifestVersion 2), jinak pluginy nevidí.
+The watchface needs `usesPermissions` in its `package.json` (manifestVersion 2), otherwise it
+can't see plugins.
 
-## Zprovoznění přihlášení (OAuth)
+## Setting up sign-in (OAuth)
 
-Výměnu tokenů dělá broker Pebble appstore, takže client secret v `.pbw` není. Kroky jsou
-potřeba jen jednou:
+Token exchange is handled by the Pebble appstore broker, so the client secret is not in the
+`.pbw`. These steps are needed only once:
 
-1. Na <https://dev.netatmo.com/apps> si založ aplikaci. Do **Redirect URI** zadej
+1. Create an app at <https://dev.netatmo.com/apps>. Set its **Redirect URI** to
    `https://appstore-api.repebble.com/api/oauth/broker/callback`.
-2. `pebble login`, pak `pebble publish`. První publikace založí listing a nabídne nastavení
-   konektoru. Případně ho nastav ručně:
+2. Run `pebble login`, then `pebble publish`. The first publish creates the listing and offers
+   to set up the connector. Or set it up by hand:
 
    ```sh
    pebble oauth-connector set --slug netatmo \
@@ -72,26 +75,30 @@ potřeba jen jednou:
      --scopes read_station \
      --token-auth-style body --token-request-format form \
      --client-id <CLIENT_ID>
-   # secret se zeptá interaktivně (nebo PEBBLE_OAUTH_CLIENT_SECRET / --client-secret-file)
+   # prompts for the secret (or use PEBBLE_OAUTH_CLIENT_SECRET / --client-secret-file)
    ```
 
-3. V aplikaci Pebble zapni Settings → Plugins → *Plugins / permissions preview*. Nainstaluj
-   plugin a v jeho nastavení klikni na **Přihlásit se k Netatmo**.
+3. In the Pebble app, turn on Settings → Plugins → *Plugins / permissions preview*. Install the
+   plugin and tap **Sign in with Netatmo** in its settings.
 
-## Vývoj
+## Development
 
-Build potřebuje pebble-tool 5.1+ a SDK 4.44+ (`pebble sdk activate 4.44`).
+Building needs pebble-tool 5.1+ and SDK 4.44+ (`pebble sdk activate 4.44`).
 
 ```sh
-npm test                 # testy proti simulovanému Pebble runtime (node --test)
+npm test                 # tests against a simulated Pebble runtime (node --test)
 pebble build             # -> build/Netatmoplugin.pbw
 pebble install --phone <IP>
-pebble logs              # console.log z pluginu
+pebble logs              # console.log output from the plugin
 ```
 
-| Soubor | Obsah |
+| File | Contents |
 |---|---|
-| `package.json` | manifest: oprávnění, zdroj `weather/netatmo`, OAuth konektor `netatmo` |
-| `src/plugin/index.js` | plugin: tokeny, volání `getstationsdata`, cache, převod na instance |
-| `src/config.html` | stránka nastavení: přihlášení, odhlášení, náhled modulů |
-| `test/plugin.test.cjs` | testy |
+| `package.json` | manifest: permissions, the `weather/netatmo` source, the `netatmo` OAuth connector |
+| `src/plugin/index.js` | the plugin: tokens, `getstationsdata` calls, cache, conversion to instances |
+| `src/config.html` | settings page: sign in, sign out, module preview |
+| `test/plugin.test.cjs` | tests |
+
+## License
+
+MIT, see [LICENSE](LICENSE).

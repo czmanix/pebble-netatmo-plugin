@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A plugin-only Pebble `.pbw` (`"projectType": "plugin"`, no watch C code) for the Pebble mobile app's plugin system (app 1.18+, guide: https://developer.repebble.com/guides/plugins/preview/). It runs as JavaScript on the phone, reads the user's Netatmo weather stations and serves them to any watchface/app as the source `weather/netatmo`. README.md (Czech) documents the source's properties and the OAuth setup.
+A plugin-only Pebble `.pbw` (`"projectType": "plugin"`, no watch C code) for the Pebble mobile app's plugin system (app 1.18+, guide: https://developer.repebble.com/guides/plugins/preview/). It runs as JavaScript on the phone, reads the user's Netatmo weather stations and serves them to any watchface/app as the source `weather/netatmo`. README.md (English) documents the source's properties and the OAuth setup.
 
 ## Commands
 
